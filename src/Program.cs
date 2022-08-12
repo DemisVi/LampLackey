@@ -12,10 +12,7 @@ public static class Program
 {
     public static IEnumerable<Device> devicesCollection;
 
-    static Program()
-    {
-        devicesCollection = DeviceLocator.DiscoverAsync().Result;
-    }
+    static Program() => devicesCollection = DeviceLocator.DiscoverAsync().Result;
 
     public static async Task Main()
     {
