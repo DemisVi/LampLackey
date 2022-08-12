@@ -3,8 +3,12 @@ using System.Text.Json;
 
 namespace LampLackey;
 
-public static class Configuration
+internal static class Configuration
 {
+    public static Dictionary<string, string> config;
+
+    static Configuration() => config = Read();
+    
     public static Dictionary<string, string> Read()
     {
         using var fs = System.IO.File.OpenRead("./config.json");

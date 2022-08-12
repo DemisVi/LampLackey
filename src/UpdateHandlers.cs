@@ -49,6 +49,8 @@ public static class UpdateHandlers
             await (msg switch
             {
                 { Text: "/list" } => LocateAndListAsync(bot, msg),
+                { Text: "/q" } when msg.Chat.Id == long.Parse(Configuration.config["tgadmin"]) =>
+                    Task.Run(() => Program.Shut("admin shutdown request")),
                 _ => Task.CompletedTask
             });
         }
@@ -61,16 +63,14 @@ public static class UpdateHandlers
     private static async Task LocateAndListAsync(ITelegramBotClient bot, Message msg)
     {
         var stringBuilder = new StringBuilder();
-        var format = "Id: {0}\nName: {1}\nModel: {2}\n";
-        
+        var format = "Id: {0}\n" + "Name: {1}\n" + "Model: {2}\n";
+
         Program.devicesCollection = await DeviceLocator.DiscoverAsync();
 
-        foreach (var dev in Program.devicesCollection)                          //
-            stringBuilder.AppendFormat(format, dev.Id, dev.Name, dev.Model);    // Dublicate to check reply message format. Remove it
         foreach (var dev in Program.devicesCollection)
             stringBuilder.AppendFormat(format, dev.Id, dev.Name, dev.Model);
 
-        if (Program.devicesCollection.Count() is not 0)
+        if (Program.devicesCollection.Any())
             await bot.SendTextMessageAsync(msg.Chat.Id, stringBuilder.ToString());
         else
             await bot.SendTextMessageAsync(msg.Chat.Id, "Discovered no Devices");
