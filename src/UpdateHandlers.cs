@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
 using System.Text;
+using System.Collections.Generic;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
@@ -45,11 +46,11 @@ public static class UpdateHandlers
 
     private static async Task HandleCallbackQuery(ITelegramBotClient bot, CallbackQuery callbackQuery)
     {
-        await (callbackQuery.Data switch
-        {
-            
-            _ => Task.CompletedTask
-        });
+        await bot.AnswerCallbackQueryAsync(
+            callbackQueryId: callbackQuery.Id,
+            text: $"switching...");
+
+        // Here is space for callback handler
     }
 
     private static async Task HandleMessageAsync(ITelegramBotClient bot, Message msg)
@@ -60,6 +61,7 @@ public static class UpdateHandlers
             {
                 { Text: "/list" } => LocateAndListAsync(bot, msg),
                 { Text: "/on" } => TurnOnAsync(bot, msg),
+                // { Text: "/cancel" } => CancelActionAsync(bot, msg),
                 { Text: "/q" } when msg.Chat.Id == long.Parse(Configuration.config["tgadmin"]) =>
                     Task.Run(() => Program.Shut("admin shutdown request")),
                 _ => Task.CompletedTask
@@ -73,18 +75,23 @@ public static class UpdateHandlers
 
     private static async Task TurnOnAsync(ITelegramBotClient bot, Message msg)
     {
-        var inlineKeyboard = new InlineKeyboardMarkup(
-            new[]
-            {
-                InlineKeyboardButton.WithCallbackData(text: "lamp name", callbackData: "lamp id"),
-                InlineKeyboardButton.WithCallbackData(text: "another lamp", callbackData: "another id"),
-            }
-        );
-
-
-        await bot.SendTextMessageAsync(msg.Chat.Id,
-                                 "Which Lamp do you want to turn on?",
-                                 replyMarkup: inlineKeyboard);
+        if (Program.devicesCollection != null && Program.devicesCollection.Any())
+        {
+            await bot.SendTextMessageAsync(msg.Chat.Id,
+                                           "Which Lamp do you want to turn on?",
+                                           replyMarkup: new ReplyKeyboardMarkup(
+                                                new KeyboardButton[]{
+                                                    $"{Program.devicesCollection.ElementAt(0).Name}",
+                                                    $"{Program.devicesCollection.ElementAt(0).Id}"})
+                                           {
+                                               OneTimeKeyboard = true,
+                                               ResizeKeyboard = true,
+                                           });
+        }
+        else
+        {
+            await bot.SendTextMessageAsync(msg.Chat.Id, $"No Devices located atm. Maybe '/list' would help?");
+        }
     }
 
     private static async Task LocateAndListAsync(ITelegramBotClient bot, Message msg)
