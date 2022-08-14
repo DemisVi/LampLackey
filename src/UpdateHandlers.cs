@@ -60,8 +60,8 @@ public static class UpdateHandlers
             await (msg switch
             {
                 { Text: "/list" } => LocateAndListAsync(bot, msg),
-                { Text: "/on" } => TurnOnAsync(bot, msg),
-                // { Text: "/cancel" } => CancelActionAsync(bot, msg),
+                { Text: "/on" } => HandleTurnOnAsync(bot, msg),
+                { Text: "/cancel" } => CancelActionAsync(bot, msg),
                 { Text: "/q" } when msg.Chat.Id == long.Parse(Configuration.config["tgadmin"]) =>
                     Task.Run(() => Program.Shut("admin shutdown request")),
                 _ => Task.CompletedTask
@@ -73,20 +73,30 @@ public static class UpdateHandlers
         }
     }
 
-    private static async Task TurnOnAsync(ITelegramBotClient bot, Message msg)
+    private static async Task CancelActionAsync(ITelegramBotClient bot, Message msg)
+    {
+        await bot.SendTextMessageAsync(chatId: msg.Chat.Id,
+                                       text: "Action was cancelled.",
+                                       replyMarkup: new ReplyKeyboardRemove());
+    }
+
+    private static async Task HandleTurnOnAsync(ITelegramBotClient bot, Message msg)
     {
         if (Program.devicesCollection != null && Program.devicesCollection.Any())
         {
-            await bot.SendTextMessageAsync(msg.Chat.Id,
-                                           "Which Lamp do you want to turn on?",
-                                           replyMarkup: new ReplyKeyboardMarkup(
-                                                new KeyboardButton[]{
-                                                    $"{Program.devicesCollection.ElementAt(0).Name}",
-                                                    $"{Program.devicesCollection.ElementAt(0).Id}"})
-                                           {
-                                               OneTimeKeyboard = true,
-                                               ResizeKeyboard = true,
-                                           });
+            var keys = Array.Empty<InlineKeyboardButton>();
+
+            foreach (var item in Program.devicesCollection)
+                keys = keys.Append(InlineKeyboardButton.WithCallbackData($"{item.Name}", $"{item.Id}"))
+                           .ToArray<InlineKeyboardButton>();
+
+            // var keys = new ReplyKeyboardMarkup(new KeyboardButton(
+            //                         // $"{Program.devicesCollection.ElementAt(0).Name}",
+            //                         $"{Program.devicesCollection.ElementAt(0).Id}"));
+
+            await bot.SendTextMessageAsync(chatId: msg.Chat.Id,
+                                           text: "Which Lamp do you want to turn on?",
+                                           replyMarkup: new InlineKeyboardMarkup(keys));
         }
         else
         {
