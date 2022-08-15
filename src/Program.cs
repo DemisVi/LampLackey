@@ -16,7 +16,7 @@ internal static class Program
 
     public static async Task Main()
     {
-        var bot = new TelegramBotClient(Configuration.config["tgtoken"]);
+        var bot = new TelegramBotClient(Configuration.config["tgtoken"]); // TODO: replace Dictionary with independent properties
         var me = await bot.GetMeAsync();
         using var cts = new CancellationTokenSource();
         var receieverOptions = new ReceiverOptions()

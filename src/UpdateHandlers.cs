@@ -28,32 +28,33 @@ public static class UpdateHandlers
         {
             await (update.Type switch
             {
-                UpdateType.Message => HandleMessageAsync(bot, update.Message!),
-                UpdateType.CallbackQuery => HandleCallbackQuery(bot, update.CallbackQuery!),
+                UpdateType.Message => HandleMessageAsync(bot, update.Message!, cts),
+                UpdateType.CallbackQuery => HandleCallbackQuery(bot, update.CallbackQuery!, cts),
                 _ => Task.CompletedTask
             });
         }
         catch (Exception ex)
         {
-            await bot.SendTextMessageAsync(update.Message!.Chat.Id, ex switch       // Bad idea replace with PollingErrorHandler
-            {
-                ArgumentOutOfRangeException => $"\n Discovered {Program.devicesCollection.Count()} devices.",
-                ApiRequestException => $"API: {ex.Message}",
-                _ => $"Exception while handling '{update.Type}'. ex: {ex.Message}. source: {ex.Source}. type: {ex.GetType().Name}",
-            });
+            await PollingErrorHandler(bot, ex, cts);
         }
     }
 
-    private static async Task HandleCallbackQuery(ITelegramBotClient bot, CallbackQuery callbackQuery)
+    private static async Task HandleCallbackQuery(ITelegramBotClient bot, CallbackQuery callbackQuery, CancellationToken cts)
     {
-        await bot.AnswerCallbackQueryAsync(
-            callbackQueryId: callbackQuery.Id,
-            text: $"switching...");
+        try
+        {
+            await bot.AnswerCallbackQueryAsync(callbackQueryId: callbackQuery.Id,
+                                               text: $"switching...");
 
-        // Here is space for callback handler
+            // Here is going to be callback handler
+        }
+        catch (Exception ex)
+        {
+            await PollingErrorHandler(bot, ex, cts);
+        }
     }
 
-    private static async Task HandleMessageAsync(ITelegramBotClient bot, Message msg)
+    private static async Task HandleMessageAsync(ITelegramBotClient bot, Message msg, CancellationToken cts)
     {
         try
         {
@@ -67,64 +68,60 @@ public static class UpdateHandlers
                 _ => Task.CompletedTask
             });
         }
-        catch (System.Exception ex)
+        catch (Exception ex)
         {
-            await bot.SendTextMessageAsync(msg.Chat.Id, $"Exception while handling Message: {ex.Message}");
+            await PollingErrorHandler(bot, ex, cts);
         }
-    }
 
-    private static async Task CancelActionAsync(ITelegramBotClient bot, Message msg)
-    {
-        await bot.SendTextMessageAsync(chatId: msg.Chat.Id,
-                                       text: "Action was cancelled.",
-                                       replyMarkup: new ReplyKeyboardRemove());
-    }
-
-    private static async Task HandleTurnOnAsync(ITelegramBotClient bot, Message msg)
-    {
-        if (Program.devicesCollection != null && Program.devicesCollection.Any())
+        static async Task CancelActionAsync(ITelegramBotClient bot, Message msg)
         {
-            var keys = Array.Empty<InlineKeyboardButton>();
-
-            foreach (var item in Program.devicesCollection)
-                keys = keys.Append(InlineKeyboardButton.WithCallbackData($"{item.Name}", $"{item.Id}"))
-                           .ToArray<InlineKeyboardButton>();
-
-            // var keys = new ReplyKeyboardMarkup(new KeyboardButton(
-            //                         // $"{Program.devicesCollection.ElementAt(0).Name}",
-            //                         $"{Program.devicesCollection.ElementAt(0).Id}"));
-
             await bot.SendTextMessageAsync(chatId: msg.Chat.Id,
-                                           text: "Which Lamp do you want to turn on?",
-                                           replyMarkup: new InlineKeyboardMarkup(keys));
-        }
-        else
-        {
-            await bot.SendTextMessageAsync(msg.Chat.Id, $"No Devices located atm. Maybe '/list' would help?");
-        }
-    }
-
-    private static async Task LocateAndListAsync(ITelegramBotClient bot, Message msg)
-    {
-        var stringBuilder = new StringBuilder();
-        var format = "💡Id: {0}\n" +
-                     "Name: {1}\n" +
-                     "Model: {2}\n";
-
-        Program.devicesCollection = await DeviceLocator.DiscoverAsync();
-
-        foreach (var dev in Program.devicesCollection)
-        {
-            stringBuilder.AppendFormat(format, dev.Id, dev.Name, dev.Model);
+                                           text: "Action was cancelled.",
+                                           replyMarkup: new ReplyKeyboardRemove());
         }
 
-        if (Program.devicesCollection.Any())
+        static async Task HandleTurnOnAsync(ITelegramBotClient bot, Message msg)
         {
-            await bot.SendTextMessageAsync(msg.Chat.Id, stringBuilder.ToString());
+            if (Program.devicesCollection != null && Program.devicesCollection.Any())
+            {
+                var keys = Array.Empty<InlineKeyboardButton>();
+
+                foreach (var item in Program.devicesCollection)
+                    keys = keys.Append(InlineKeyboardButton.WithCallbackData(item.Name + item.Properties["power"], item.Id.Substring(10)))
+                               .ToArray<InlineKeyboardButton>();
+
+                await bot.SendTextMessageAsync(chatId: msg.Chat.Id,
+                                               text: "Which Lamp do you want to turn on?",
+                                               replyMarkup: new InlineKeyboardMarkup(keys));
+            }
+            else
+            {
+                await bot.SendTextMessageAsync(msg.Chat.Id, $"No Devices located atm. Maybe '/list' would help?");
+            }
         }
-        else
-        {
-            await bot.SendTextMessageAsync(msg.Chat.Id, "Discovered no Devices");
+
+        static async Task LocateAndListAsync(ITelegramBotClient bot, Message msg) // TODO: split into two methods:
+        {                                                                         // one for scan, one for display
+            var stringBuilder = new StringBuilder();
+            var format = "💡Id: {0}\n" +
+                         "Name: {1}\n" +
+                         "Model: {2}\n";
+
+            Program.devicesCollection = await DeviceLocator.DiscoverAsync();
+
+            foreach (var dev in Program.devicesCollection)
+            {
+                stringBuilder.AppendFormat(format, dev.Id, dev.Name, dev.Model);
+            }
+
+            if (Program.devicesCollection.Any())
+            {
+                await bot.SendTextMessageAsync(msg.Chat.Id, stringBuilder.ToString());
+            }
+            else
+            {
+                await bot.SendTextMessageAsync(msg.Chat.Id, "Discovered no Devices");
+            }
         }
     }
 }

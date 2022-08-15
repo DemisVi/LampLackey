@@ -5,7 +5,7 @@ namespace LampLackey;
 
 internal static class Configuration
 {
-    public static Dictionary<string, string> config;
+    public static Dictionary<string, string> config; //TODO: totally wrong. reconsider this. make Dictionary private. add Properties
 
     static Configuration() => config = Read();
     
