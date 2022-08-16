@@ -29,8 +29,7 @@ internal static class Program
                            receiverOptions: receieverOptions,
                            cancellationToken: cts.Token);
 
-        await bot.SendTextMessageAsync(Configuration.config["tgadmin"],
-                                       $"Start listening for @{me.Username} id: {me.Id}. '/q' to shut");
+        Console.WriteLine($"Start listening for @{me.Username}. 'q' to shut");
 
         while (Console.ReadKey().KeyChar != 'q') ;
 

@@ -10,7 +10,7 @@ public static class DeviceExtensions
     {
         if (dev.IsConnected)
         {
-            return dev["power"].ToString()!.Contains("on") ? "⚪ on" : "🟤 off";
+            return dev["power"].ToString()!.Contains("on") ? " ⚪ on" : " 🟤 off";
         }
         return "⚫";
     }

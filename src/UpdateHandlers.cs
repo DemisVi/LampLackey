@@ -43,16 +43,19 @@ public static class UpdateHandlers
     {
         try
         {
+            var dev = Program.devicesCollection.Where(x => x.Id == callbackQuery.Data).ElementAt(0);
             await bot.AnswerCallbackQueryAsync(callbackQueryId: callbackQuery.Id,
-                                               text: $"switching...");
-
-            await (callbackQuery switch
+                                               text: $"switching {dev.Name}");
+                                               /* text: $"{callbackQuery.Message.MessageId}"); */
+            if (!dev.IsConnected)
             {
-                { }
-                _ => Task.CompletedTask
-            });
+                await dev.Connect();
+            }
+            await dev.Toggle();
 
-            await bot.SendTextMessageAsync(callbackQuery.Message!.Chat.Id, callbackQuery.Data!);
+            await bot.EditMessageReplyMarkupAsync(chatId: callbackQuery.Message!.Chat.Id,
+                                                  messageId: callbackQuery.Message.MessageId,
+                                                  await KeyboardHelper.GetIndividualSwitchKeys(Program.devicesCollection));
         }
         catch (Exception ex)
         {
@@ -66,11 +69,14 @@ public static class UpdateHandlers
         {
             await (msg switch
             {
-                { Text: "/list" } => LocateAndListAsync(bot, msg),
-                { Text: "/on" } => HandleSwitchOneAsync(bot, msg),
-                { Text: "/cancel" } => CancelActionAsync(bot, msg),
+                // { Text: "/start" } => Usage(),
+                { Text: "/list" } => LocateAndListAsync(bot, msg), //replace with "scan", split into 2 methods
+                { Text: "/switch" or "/start" } => HandleSwitchOneAsync(bot, msg),
+/*                 { Text: "/cancel" } => CancelActionAsync(bot, msg), */
                 { Text: "/q" } when msg.Chat.Id == long.Parse(Configuration.config["tgadmin"]) =>
                     Task.Run(() => Program.Shut("admin shutdown request")),
+                { Text: "/q" } when msg.Chat.Id != long.Parse(Configuration.config["tgadmin"]) =>
+                    bot.SendTextMessageAsync(msg.Chat.Id, "Only admin can command me this"),
                 _ => Task.CompletedTask
             });
         }
@@ -79,12 +85,12 @@ public static class UpdateHandlers
             await PollingErrorHandler(bot, ex, cts);
         }
 
-        static async Task CancelActionAsync(ITelegramBotClient bot, Message msg)
+        /* static async Task CancelActionAsync(ITelegramBotClient bot, Message msg)
         {
             await bot.SendTextMessageAsync(chatId: msg.Chat.Id,
                                            text: "Action was cancelled.",
                                            replyMarkup: new ReplyKeyboardRemove());
-        }
+        } */
 
         static async Task HandleSwitchOneAsync(ITelegramBotClient bot, Message msg)
         {
@@ -96,12 +102,13 @@ public static class UpdateHandlers
                 {
                     await item.Connect();
                     keys.Add(InlineKeyboardButton.WithCallbackData(item.Name + item.GetPowerState(),
-                                                                   item.Id.Substring(10)));
+                                                                   /* "switch " +  */item.Id));
                 }
 
                 await bot.SendTextMessageAsync(chatId: msg.Chat.Id,
                                                text: "Which Lamp do you want to turn on?",
-                                               replyMarkup: new InlineKeyboardMarkup(keys));
+                                               replyMarkup: await KeyboardHelper.GetIndividualSwitchKeys(
+                                                Program.devicesCollection));
             }
             else
             {
@@ -132,5 +139,10 @@ public static class UpdateHandlers
                 await bot.SendTextMessageAsync(msg.Chat.Id, "Discovered no Devices");
             }
         }
+    }
+
+    private static Task Usage()
+    {
+        throw new NotImplementedException();
     }
 }
