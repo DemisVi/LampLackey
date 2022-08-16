@@ -8,7 +8,7 @@ using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
 using Telegram.Bot.Types.Enums;
-using Telegram.Bot.Exceptions;
+// using Telegram.Bot.Exceptions;
 using YeelightAPI;
 // using YeelightAPI.Models;
 
@@ -46,7 +46,13 @@ public static class UpdateHandlers
             await bot.AnswerCallbackQueryAsync(callbackQueryId: callbackQuery.Id,
                                                text: $"switching...");
 
-            // Here is going to be callback handler
+            await (callbackQuery switch
+            {
+                { }
+                _ => Task.CompletedTask
+            });
+
+            await bot.SendTextMessageAsync(callbackQuery.Message!.Chat.Id, callbackQuery.Data!);
         }
         catch (Exception ex)
         {
@@ -61,7 +67,7 @@ public static class UpdateHandlers
             await (msg switch
             {
                 { Text: "/list" } => LocateAndListAsync(bot, msg),
-                { Text: "/on" } => HandleTurnOnAsync(bot, msg),
+                { Text: "/on" } => HandleSwitchOneAsync(bot, msg),
                 { Text: "/cancel" } => CancelActionAsync(bot, msg),
                 { Text: "/q" } when msg.Chat.Id == long.Parse(Configuration.config["tgadmin"]) =>
                     Task.Run(() => Program.Shut("admin shutdown request")),
@@ -80,15 +86,18 @@ public static class UpdateHandlers
                                            replyMarkup: new ReplyKeyboardRemove());
         }
 
-        static async Task HandleTurnOnAsync(ITelegramBotClient bot, Message msg)
+        static async Task HandleSwitchOneAsync(ITelegramBotClient bot, Message msg)
         {
             if (Program.devicesCollection != null && Program.devicesCollection.Any())
             {
-                var keys = Array.Empty<InlineKeyboardButton>();
+                var keys = new List<InlineKeyboardButton>();
 
                 foreach (var item in Program.devicesCollection)
-                    keys = keys.Append(InlineKeyboardButton.WithCallbackData(item.Name + item.Properties["power"], item.Id.Substring(10)))
-                               .ToArray<InlineKeyboardButton>();
+                {
+                    await item.Connect();
+                    keys.Add(InlineKeyboardButton.WithCallbackData(item.Name + item.GetPowerState(),
+                                                                   item.Id.Substring(10)));
+                }
 
                 await bot.SendTextMessageAsync(chatId: msg.Chat.Id,
                                                text: "Which Lamp do you want to turn on?",
