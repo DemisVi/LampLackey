@@ -3,7 +3,7 @@ using System.Text.Json;
 
 namespace LampLackey;
 
-internal static class Configuration
+internal static class Configuration // split configuration. store token and users separately
 {
     public static Dictionary<string, string> config; //TODO: totally wrong. reconsider this. make Dictionary private. add Properties
 
