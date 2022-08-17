@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using YeelightAPI;
@@ -13,5 +15,10 @@ public static class DeviceExtensions
             return dev["power"].ToString()!.Contains("on") ? " ⚪ on" : " 🟤 off";
         }
         return "⚫";
+    }
+
+    public static string GetNameById(this IEnumerable<Device> devs, string id)
+    {
+        return devs.Where(x => x.Id == id).ElementAt(0).Name;
     }
 }

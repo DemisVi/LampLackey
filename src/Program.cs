@@ -2,15 +2,16 @@
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Linq;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types.Enums;
 using YeelightAPI;
 
 namespace LampLackey;
-internal static class Program
+public static class Program
 {
-    internal static IEnumerable<Device> devicesCollection;
+    public static IEnumerable<Device> devicesCollection;
 
     static Program() => devicesCollection = DeviceLocator.DiscoverAsync().Result;
 
@@ -34,11 +35,5 @@ internal static class Program
         while (Console.ReadKey().KeyChar != 'q') ;
 
         cts.Cancel();
-    }
-
-    internal static void Shut(string message)       // TODO: need some better idea how terminate application
-    {
-        System.Console.WriteLine(message);
-        Environment.Exit(0);
     }
 }

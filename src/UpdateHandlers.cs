@@ -43,10 +43,29 @@ public static class UpdateHandlers
     {
         try
         {
-            var dev = Program.devicesCollection.Where(x => x.Id == callbackQuery.Data).ElementAt(0);
+            string devId = callbackQuery.Data!.Split(' ')[1];
+
             await bot.AnswerCallbackQueryAsync(callbackQueryId: callbackQuery.Id,
-                                               text: $"switching {dev.Name}");
-                                               /* text: $"{callbackQuery.Message.MessageId}"); */
+                                               text: $"switching {Program.devicesCollection.GetNameById(devId)}");
+
+            var command = callbackQuery.Data?.Split(' ')[0];
+            var action = command switch
+            {
+                "switch" => ToggleLightAsync(bot, callbackQuery, devId),
+                _ => Task.CompletedTask
+            };
+
+            await action;
+        }
+        catch (Exception ex)
+        {
+            await PollingErrorHandler(bot, ex, cts);
+        }
+
+        static async Task ToggleLightAsync(ITelegramBotClient bot, CallbackQuery callbackQuery, string devId)
+        {
+            var dev = Program.devicesCollection.Where(x => x.Id == devId).ElementAt(0);
+
             if (!dev.IsConnected)
             {
                 await dev.Connect();
@@ -57,10 +76,6 @@ public static class UpdateHandlers
                                                   messageId: callbackQuery.Message.MessageId,
                                                   await KeyboardHelper.GetIndividualSwitchKeys(Program.devicesCollection));
         }
-        catch (Exception ex)
-        {
-            await PollingErrorHandler(bot, ex, cts);
-        }
     }
 
     private static async Task HandleMessageAsync(ITelegramBotClient bot, Message msg, CancellationToken cts)
@@ -69,14 +84,9 @@ public static class UpdateHandlers
         {
             await (msg switch
             {
-                // { Text: "/start" } => Usage(),
+                { Text: "/start" } => Usage(bot, msg),
                 { Text: "/list" } => LocateAndListAsync(bot, msg), //replace with "scan", split into 2 methods
-                { Text: "/switch" or "/start" } => HandleSwitchOneAsync(bot, msg),
-/*                 { Text: "/cancel" } => CancelActionAsync(bot, msg), */
-                { Text: "/q" } when msg.Chat.Id == long.Parse(Configuration.config["tgadmin"]) =>
-                    Task.Run(() => Program.Shut("admin shutdown request")),
-                { Text: "/q" } when msg.Chat.Id != long.Parse(Configuration.config["tgadmin"]) =>
-                    bot.SendTextMessageAsync(msg.Chat.Id, "Only admin can command me this"),
+                { Text: "/switch" } => SendSwitchKeyboardAsync(bot, msg),
                 _ => Task.CompletedTask
             });
         }
@@ -85,30 +95,14 @@ public static class UpdateHandlers
             await PollingErrorHandler(bot, ex, cts);
         }
 
-        /* static async Task CancelActionAsync(ITelegramBotClient bot, Message msg)
-        {
-            await bot.SendTextMessageAsync(chatId: msg.Chat.Id,
-                                           text: "Action was cancelled.",
-                                           replyMarkup: new ReplyKeyboardRemove());
-        } */
-
-        static async Task HandleSwitchOneAsync(ITelegramBotClient bot, Message msg)
+        static async Task SendSwitchKeyboardAsync(ITelegramBotClient bot, Message msg)
         {
             if (Program.devicesCollection != null && Program.devicesCollection.Any())
             {
-                var keys = new List<InlineKeyboardButton>();
-
-                foreach (var item in Program.devicesCollection)
-                {
-                    await item.Connect();
-                    keys.Add(InlineKeyboardButton.WithCallbackData(item.Name + item.GetPowerState(),
-                                                                   /* "switch " +  */item.Id));
-                }
-
                 await bot.SendTextMessageAsync(chatId: msg.Chat.Id,
                                                text: "Which Lamp do you want to turn on?",
                                                replyMarkup: await KeyboardHelper.GetIndividualSwitchKeys(
-                                                Program.devicesCollection));
+                                                   Program.devicesCollection));
             }
             else
             {
@@ -139,10 +133,15 @@ public static class UpdateHandlers
                 await bot.SendTextMessageAsync(msg.Chat.Id, "Discovered no Devices");
             }
         }
-    }
 
-    private static Task Usage()
-    {
-        throw new NotImplementedException();
+        static async Task Usage(ITelegramBotClient bot, Message msg)
+        {
+            string usage = "list - List available Lights\n" +
+                           "scan - Scan network for Lights\n" +
+                           "switch - Switching menu\n";
+
+            await bot.SendTextMessageAsync(chatId: msg.Chat.Id,
+                                     text: usage);
+        }
     }
 }
