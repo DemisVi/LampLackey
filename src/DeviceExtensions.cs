@@ -14,11 +14,9 @@ public static class DeviceExtensions
         {
             return dev["power"].ToString()!.Contains("on") ? " ⚪ on" : " 🟤 off";
         }
-        return "⚫";
+        return " ⚫";
     }
 
-    public static string GetNameById(this IEnumerable<Device> devs, string id)
-    {
-        return devs.Where(x => x.Id == id).ElementAt(0).Name;
-    }
+    public static string GetNameById(this IEnumerable<Device> devs, string id) =>
+        devs.Where(x => x.Id == id).ElementAt(0).Name;
 }
