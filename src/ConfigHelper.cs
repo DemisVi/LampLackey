@@ -12,7 +12,7 @@ public static class ConfigHelper
     public static List<string> Users => config.Users;
     static ConfigHelper()
     {
-        try
+        /* try
         {
             using var fileStream = File.OpenRead("config.json");
             config = JsonSerializer.Deserialize<Config>(fileStream);
@@ -25,6 +25,23 @@ public static class ConfigHelper
                 FileNotFoundException => CreateBlankConfig(),
                 _ => throw new Exception("Can't read or create config.json")
             };
+        } */
+
+        if (File.Exists("config.json"))
+        {
+            try
+            {
+                using var fileStream = File.OpenRead("config.json");
+                config = JsonSerializer.Deserialize<Config>(fileStream);
+            }
+            catch (JsonException)
+            {
+                config = ReadAsLine();
+            }
+        }
+        else
+        {
+            config = CreateBlankConfig();
         }
 
         static Config ReadAsLine()
