@@ -32,7 +32,7 @@ public static class Program
 
         Console.WriteLine($"Start listening for @{me.Username}. 'q' to shut");
 
-        while (Console.ReadKey().KeyChar != 'q') ;
+        while (Console.ReadKey().KeyChar != 'q');
 
         cts.Cancel();
     }
