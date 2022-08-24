@@ -10,13 +10,13 @@ public static class KeyboardHelper
     public static async Task<InlineKeyboardMarkup> GetIndividualSwitchKeys(IEnumerable<Device> devices)
     {
         var keys = new List<InlineKeyboardButton>();
-        var commandPrefix = "switch ";
+        var callbackPrefix = "switch:";
 
         foreach (var item in Program.devicesCollection)
         {
             await item.Connect();
             keys.Add(InlineKeyboardButton.WithCallbackData(item.Name + item.GetPowerState(),
-                                                           commandPrefix + item.Id));
+                                                           callbackPrefix + item.Id));
         }
         return new InlineKeyboardMarkup(keys);
     }

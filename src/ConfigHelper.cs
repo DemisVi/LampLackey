@@ -9,6 +9,7 @@ public static class ConfigHelper
 {
     private static Config config;
     public static string Token => config.Token;
+    public static string AdminId => config.AdminId;
     public static List<string> Users => config.Users;
     static ConfigHelper()
     {
@@ -48,7 +49,8 @@ public static class ConfigHelper
         {
             try
             {
-                var line = File.ReadAllLines("./config.json")[0].Trim('"');
+                var line = File.ReadAllLines("./config.json")[0].Trim(new char[]
+                    { '"', ' ', ',', '{', '}', '[', ']' });
 
                 config = new Config(line);
                 Save();
@@ -87,9 +89,10 @@ public static class ConfigHelper
     private struct Config
     {
         public string Token { get; set; } = string.Empty;
+        public string AdminId { get; set; } = string.Empty;
         public List<string> Users { get; set; } = new();
 
         public Config(string token) => Token = token;
-        public Config() => Token = "token";
+        public Config() : this("token") { }
     }
 }
