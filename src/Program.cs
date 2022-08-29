@@ -38,6 +38,6 @@ public static class Program
             System.Console.WriteLine("Terminating");
         };
 
-        Thread.Sleep(-1);
+        Thread.Sleep(Timeout.Infinite);
     }
 }
