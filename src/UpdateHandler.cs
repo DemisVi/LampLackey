@@ -14,13 +14,9 @@ using YeelightAPI;
 
 namespace LampLackey;
 
-public static class UpdateHandlers
+public class UpdateHandler
 {
-    public static Task PollingErrorHandler(ITelegramBotClient bot, Exception ex, CancellationToken cts)
-    {
-        System.Console.WriteLine($"Polling exception {ex}");
-        return Task.CompletedTask;
-    }
+    private static IEnumerable<Device> devices = DeviceLocator.DiscoverAsync().Result;
 
     public static Task HandleUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken cts)
     {
@@ -28,14 +24,14 @@ public static class UpdateHandlers
         {
             return (update.Type switch
             {
-                UpdateType.Message => HandleMessageAsync(bot, update.Message!, cts),
+                UpdateType.Message => HandleCommandAsync(bot, update.Message!, cts),
                 UpdateType.CallbackQuery => HandleCallbackQuery(bot, update.CallbackQuery!, cts),
                 _ => Task.CompletedTask
             });
         }
         catch (Exception ex)
         {
-            return PollingErrorHandler(bot, ex, cts);
+            return ErrorHandler.PollingErrorHandler(bot, ex, cts);
         }
     }
 
@@ -44,11 +40,11 @@ public static class UpdateHandlers
         try
         {
             var callbackData = callbackQuery.Data!.Split(':');
-            var devId = callbackData[1];
-            var command = callbackData[0];
+            var devId = callbackData.Last();
+            var command = callbackData.First();
 
             await bot.AnswerCallbackQueryAsync(callbackQueryId: callbackQuery.Id,
-                                               text: $"switching {Program.devicesCollection.GetNameById(devId)}");
+                                               text: $"switching {devices.GetNameById(devId)}");
 
             await (command switch
             {
@@ -58,12 +54,12 @@ public static class UpdateHandlers
         }
         catch (Exception ex)
         {
-            await PollingErrorHandler(bot, ex, cts);
+            await ErrorHandler.PollingErrorHandler(bot, ex, cts);
         }
 
         static async Task ToggleLightAsync(ITelegramBotClient bot, CallbackQuery callbackQuery, string devId)
         {
-            var dev = Program.devicesCollection.Where(x => x.Id == devId).ElementAt(0);
+            var dev = devices.Where(x => x.Id == devId).ElementAt(0);
 
             if (!dev.IsConnected)
             {
@@ -75,37 +71,38 @@ public static class UpdateHandlers
             {
                 await bot.EditMessageReplyMarkupAsync(chatId: callbackQuery.Message!.Chat.Id,
                                                       messageId: callbackQuery.Message.MessageId,
-                                                      await KeyboardHelper.GetIndividualSwitchKeys(Program.devicesCollection));
+                                                      await KeyboardHelper.GetIndividualSwitchKeys(devices));
             }
             catch (ApiRequestException) { }
         }
     }
 
-    private static Task HandleMessageAsync(ITelegramBotClient bot, Message msg, CancellationToken cts)
+    private static Task HandleCommandAsync(ITelegramBotClient bot, Message msg, CancellationToken cts)
     {
         try
         {
             return (msg switch
             {
-                { Text: "/start" } => Usage(bot, msg),
-                { Text: "/list" } => LocateAndListAsync(bot, msg), //replace with "scan", split into 2 methods
+                { Text: "/start" or "/usage" } => Usage(bot, msg),
+                { Text: "/list" } => ListAsync(bot, msg),
+                { Text: "/scan" } => ScanAsync(bot, msg),
                 { Text: "/switch" } => SendSwitchKeyboardAsync(bot, msg),
                 _ => Task.CompletedTask
             });
         }
         catch (Exception ex)
         {
-            return PollingErrorHandler(bot, ex, cts);
+            return ErrorHandler.PollingErrorHandler(bot, ex, cts);
         }
 
         static async Task SendSwitchKeyboardAsync(ITelegramBotClient bot, Message msg)
         {
-            if (Program.devicesCollection != null && Program.devicesCollection.Any())
+            if (devices is not null && devices.Any())
             {
                 await bot.SendTextMessageAsync(chatId: msg.Chat.Id,
                                                text: "Which Lamp do you want to switch?",
                                                replyMarkup: await KeyboardHelper.GetIndividualSwitchKeys(
-                                                   Program.devicesCollection));
+                                                   devices));
             }
             else
             {
@@ -113,38 +110,29 @@ public static class UpdateHandlers
             }
         }
 
-        static async Task LocateAndListAsync(ITelegramBotClient bot, Message msg) // TODO: split into two methods:
+        static Task ListAsync(ITelegramBotClient bot, Message msg) // TODO: split into two methods:
         {                                                                         // one for scan, one for display
-            var stringBuilder = new StringBuilder();
-            var format = "💡Id: {0}\n" +
-                         "Name: {1}\n" +
-                         "Model: {2}\n";
-
-            Program.devicesCollection = await DeviceLocator.DiscoverAsync();
-
-            foreach (var dev in Program.devicesCollection)
+            if (devices.Any())
             {
-                stringBuilder.AppendFormat(format, dev.Id, dev.Name, dev.Model);
-            }
-
-            if (Program.devicesCollection.Any())
-            {
-                await bot.SendTextMessageAsync(msg.Chat.Id, stringBuilder.ToString());
+                return bot.SendTextMessageAsync(msg.Chat.Id, Messages.GetDeviceListMessage(devices));
             }
             else
             {
-                await bot.SendTextMessageAsync(msg.Chat.Id, "Discovered no Devices");
+                return bot.SendTextMessageAsync(msg.Chat.Id, "No Devices located. Try '/scan' first.");
             }
+        }
+
+        static async Task ScanAsync(ITelegramBotClient bot, Message msg) // TODO: split into two methods:
+        {                                                                         // one for scan, one for display
+            devices = await DeviceLocator.DiscoverAsync();
+
+            await ListAsync(bot, msg);
         }
 
         static Task Usage(ITelegramBotClient bot, Message msg)
         {
-            string usage = "/list - List available Lights\n" +
-                           "/scan - Scan network for Lights\n" +
-                           "/switch - Switching menu\n";
-
             return bot.SendTextMessageAsync(chatId: msg.Chat.Id,
-                                            text: usage);
+                                            text: Messages.GetUsageMessage());
         }
     }
 }

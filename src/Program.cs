@@ -11,13 +11,9 @@ using YeelightAPI;
 namespace LampLackey;
 public static class Program
 {
-    public static IEnumerable<Device> devicesCollection;
-
-    static Program() => devicesCollection = DeviceLocator.DiscoverAsync().Result;
-
     public static async Task Main()
     {
-        var bot = new TelegramBotClient(ConfigHelper.Token);
+        var bot = new TelegramBotClient(Config.Token);
         var me = await bot.GetMeAsync();
         using var cts = new CancellationTokenSource();
         var receieverOptions = new ReceiverOptions()
@@ -25,12 +21,12 @@ public static class Program
             ThrowPendingUpdates = true,
         };
 
-        bot.StartReceiving(updateHandler: UpdateHandlers.HandleUpdateAsync,
-                           pollingErrorHandler: UpdateHandlers.PollingErrorHandler,
+        bot.StartReceiving(updateHandler: UpdateHandler.HandleUpdateAsync,
+                           pollingErrorHandler: ErrorHandler.PollingErrorHandler,
                            receiverOptions: receieverOptions,
                            cancellationToken: cts.Token);
 
-        Console.WriteLine($"Start listening for @{me.Username}. 'q' to shut");
+        Console.WriteLine($"Start listening for @{me.Username} Id: {me.Id}");
 
         Console.CancelKeyPress += (_, _) =>
         {
@@ -39,5 +35,6 @@ public static class Program
         };
 
         Thread.Sleep(Timeout.Infinite);
+
     }
 }

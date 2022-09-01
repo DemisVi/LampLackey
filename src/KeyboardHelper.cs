@@ -12,7 +12,7 @@ public static class KeyboardHelper
         var keys = new List<InlineKeyboardButton>();
         var callbackPrefix = "switch:";
 
-        foreach (var item in Program.devicesCollection)
+        foreach (var item in devices)
         {
             await item.Connect();
             keys.Add(InlineKeyboardButton.WithCallbackData(item.Name + item.GetPowerState(),
